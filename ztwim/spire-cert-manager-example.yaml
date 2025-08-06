@@ -1,0 +1,59 @@
+---
+# 1. Bootstrap self-signed issuer
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: bootstrap-selfsigned
+  namespace: zero-trust-workload-identity-manager
+spec:
+  selfSigned: {}
+
+---
+# 2. Create internal root CA certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: spire-root-ca
+  namespace: zero-trust-workload-identity-manager
+spec:
+  isCA: true
+  commonName: "SPIRE Root CA"
+  secretName: spire-root-ca-secret
+  duration: 26280h # 3 years
+  renewBefore: 720h # 30 days
+  subject:
+    organizationalUnits: ["SPIRE"]
+    organizations: ["My Organization"]
+    countries: ["US"]
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: bootstrap-selfsigned
+    kind: Issuer
+
+---
+# 3. Create CA issuer for SPIRE intermediate certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: spire-ca-issuer
+  namespace: zero-trust-workload-identity-manager
+spec:
+  ca:
+    secretName: spire-root-ca-secret
+
+---
+# 4. SPIRE Server configuration with cert-manager upstream authority
+# (This would be applied to your SpireServer resource)
+# Example configuration:
+#
+# spec:
+#   trustDomain: "example.org"
+#   upstreamAuthority:
+#     type: cert-manager
+#     certManager:
+#       issuerName: spire-ca-issuer
+#       issuerKind: Issuer
+#       issuerGroup: cert-manager.io
+#       namespace: zero-trust-workload-identity-manager 

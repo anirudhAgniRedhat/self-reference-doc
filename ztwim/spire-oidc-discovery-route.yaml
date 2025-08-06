@@ -1,0 +1,44 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: spire-oidc-discovery
+  namespace: zero-trust-workload-identity-manager
+  labels:
+    app.kubernetes.io/instance: spire
+    app.kubernetes.io/name: spiffe-oidc-discovery-provider
+    app.kubernetes.io/part-of: zero-trust-workload-identity-manager
+  annotations:
+    # Timeout for OIDC operations (similar to console)
+    haproxy.router.openshift.io/timeout: 5m
+    # Description of the route
+    openshift.io/description: "Route for SPIRE OIDC Discovery Provider - provides OIDC discovery document and JWKS endpoints for JWT validation"
+spec:
+  # External hostname for the OIDC discovery provider
+  host: spire-oidc-discovery.apps.aagnihot-custer-kdbs.devcluster.openshift.com
+  
+  # Target service and port
+  to:
+    kind: Service
+    name: spire-spiffe-oidc-discovery-provider
+    weight: 100
+  port:
+    targetPort: https
+  
+  # TLS configuration - re-encrypt mode for end-to-end encryption
+  tls:
+    # Re-encrypt: HTTPS from client to router, HTTPS from router to service
+    termination: reencrypt
+    
+    # Redirect HTTP traffic to HTTPS
+    insecureEdgeTerminationPolicy: Redirect
+    
+    # Optional: Specify destination CA certificate for backend verification
+    # The router will use this to verify the service certificate
+    # If not specified, router uses the service CA bundle
+    # destinationCACertificate: |
+    #   -----BEGIN CERTIFICATE-----
+    #   ... Service CA certificate content ...
+    #   -----END CERTIFICATE-----
+  
+  # No wildcard policy - exact hostname matching
+  wildcardPolicy: None 

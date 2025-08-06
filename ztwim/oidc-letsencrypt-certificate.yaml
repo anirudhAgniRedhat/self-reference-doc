@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: oidc-discovery-letsencrypt
+  namespace: zero-trust-workload-identity-manager
+spec:
+  # Secret name where the certificate will be stored
+  secretName: oidc-discovery-letsencrypt-tls
+  
+  # Use Let's Encrypt staging first for testing
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+    group: cert-manager.io
+  
+  # Domain name for the certificate
+  dnsNames:
+  - oidc-discovery.apps.aagnihot-custer-kdbs.devcluster.openshift.com
+  
+  # Certificate usage
+  usages:
+  - digital signature
+  - key encipherment 

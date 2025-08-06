@@ -1,0 +1,28 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: oidc-letsencrypt
+  namespace: zero-trust-workload-identity-manager
+  labels:
+    app.kubernetes.io/instance: spire
+    app.kubernetes.io/name: spiffe-oidc-discovery-provider
+    app.kubernetes.io/part-of: zero-trust-workload-identity-manager
+  annotations:
+    haproxy.router.openshift.io/timeout: 5m
+    openshift.io/description: "Re-encrypt route for SPIRE OIDC Discovery Provider with Let's Encrypt certificate for client-to-ingress and Service CA for ingress-to-backend"
+spec:
+  host: oidc-discovery.apps.aagnihot-custer-kdbs.devcluster.openshift.com
+  to:
+    kind: Service
+    name: spire-spiffe-oidc-discovery-provider
+    weight: 100
+  port:
+    targetPort: https
+  tls:
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect
+    certificate: |
+$(cat /tmp/letsencrypt.crt | sed 's/^/      /')
+    key: |
+$(cat /tmp/letsencrypt.key | sed 's/^/      /')
+  wildcardPolicy: None
