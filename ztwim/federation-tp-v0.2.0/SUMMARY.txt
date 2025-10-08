@@ -1,0 +1,244 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║        SPIRE Federation - Complete End-to-End Setup Package              ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+📁 Location: federation/
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 🚀 MAIN SCRIPT (⭐ Start Here!)                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  setup-federation.sh (20 KB)
+    │
+    ├─ Takes 2 kubeconfig paths as input
+    ├─ Automatically configures SPIRE federation
+    ├─ Updates ConfigMaps, Services, StatefulSets
+    ├─ Creates Routes and federation resources
+    ├─ Bootstraps trust bundle exchange
+    ├─ Deploys demo workloads on both clusters
+    ├─ Runs complete verification
+    └─ Shows success report
+
+  Usage:
+    ./setup-federation.sh <cluster1-kubeconfig> <cluster2-kubeconfig>
+
+  Example:
+    ./setup-federation.sh \
+      /path/to/aws/auth/kubeconfig \
+      /path/to/aws1/auth/kubeconfig
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ✅ VERIFICATION SCRIPT                                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  verify-federation.sh (2.9 KB)
+    │
+    ├─ Quick federation status check
+    ├─ Shows trust bundles
+    ├─ Displays workload entries
+    └─ Verifies demo workloads
+
+  Usage:
+    ./verify-federation.sh <cluster1-kubeconfig> <cluster2-kubeconfig>
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 📖 DOCUMENTATION                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  INDEX.md (5.8 KB)
+    └─ File directory index and quick reference
+
+  QUICKSTART.md (5.3 KB)
+    └─ Quick start guide with examples
+
+  README.md (9.4 KB)
+    └─ Complete detailed documentation
+
+  SUMMARY.txt (this file)
+    └─ Visual overview of the package
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ⚙️  WHAT THE SCRIPT CONFIGURES                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+On BOTH Clusters:
+
+  ┌─ SPIRE Server Configuration
+  │  ├─ ConfigMap: federation endpoint (port 8443)
+  │  ├─ Service: federation port exposed
+  │  ├─ StatefulSet: container port added
+  │  └─ Pods: restarted with new config
+  │
+  ├─ Federation Resources
+  │  ├─ Route: spire-server-federation
+  │  ├─ ClusterFederatedTrustDomain: trust relationship
+  │  ├─ ClusterSPIFFEID: federated workload identity
+  │  └─ Trust Bundles: exchanged between clusters
+  │
+  └─ Demo Workloads
+     ├─ Namespace: federation-demo
+     ├─ ServiceAccount: demo-workload
+     ├─ Deployment: demo-workload pod
+     └─ SPIFFE Workload API: mounted and accessible
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 📊 SCRIPT EXECUTION FLOW                                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  [1/15] Gather cluster information
+         ↓
+  [2-3]  Update SPIRE Server ConfigMaps
+         ↓
+  [4-5]  Add federation port to Services
+         ↓
+  [6-7]  Add federation port to StatefulSets
+         ↓
+  [8]    Wait for pod restarts
+         ↓
+  [9-10] Create federation Routes
+         ↓
+  [11-12] Create ClusterFederatedTrustDomain
+         ↓
+  [13]   Bootstrap trust bundle exchange
+         ↓
+  [14-15] Create federated ClusterSPIFFEID
+         ↓
+  [Demo] Deploy demo workloads
+         ↓
+  [Verify] Show federation status
+         ↓
+  [✅] Complete success report
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ✨ FEATURES                                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  ✅ Fully Automated    - No manual configuration needed
+  ✅ Idempotent         - Safe to re-run anytime
+  ✅ Colored Output     - Easy to follow progress
+  ✅ Error Handling     - Clear error messages
+  ✅ Complete Testing   - Demo workloads verify federation
+  ✅ Production Ready   - Uses https_spiffe (secure)
+  ✅ Comprehensive Docs - Multiple documentation files
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 🎯 EXAMPLE OUTPUT                                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  $ ./setup-federation.sh cluster1.kubeconfig cluster2.kubeconfig
+
+  ================================================
+  SPIRE Federation Setup
+  ================================================
+
+  [STEP 1/15] Gathering cluster information
+  ✓ Cluster 1: test01 (Trust Domain: apps.cluster1.example.com)
+  ✓ Cluster 2: test02 (Trust Domain: apps.cluster2.example.com)
+
+  [STEP 2/15] Updating SPIRE Server ConfigMap on Cluster 1
+  ✓ Cluster 1 ConfigMap updated
+  
+  ... (steps 3-15) ...
+
+  ================================================
+  ✅ Federation Setup Complete!
+  ================================================
+
+  Cluster 1 (test01)
+    Trust Domain: apps.cluster1.example.com
+    Federation URL: https://spire-federation-test01.apps.cluster1.example.com
+    Federates With: apps.cluster2.example.com
+
+  Cluster 2 (test02)
+    Trust Domain: apps.cluster2.example.com
+    Federation URL: https://spire-federation-test02.apps.cluster2.example.com
+    Federates With: apps.cluster1.example.com
+
+  ✅ Demo workloads deployed and running
+  ✅ Workloads have access to SPIFFE Workload API
+  ✅ Cross-cluster authentication is enabled
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 🎓 USAGE EXAMPLES                                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  1. Initial Setup:
+     ./setup-federation.sh /path/to/cluster1.kubeconfig /path/to/cluster2.kubeconfig
+
+  2. Verify Federation:
+     ./verify-federation.sh /path/to/cluster1.kubeconfig /path/to/cluster2.kubeconfig
+
+  3. Check Trust Bundles:
+     kubectl exec -n zero-trust-workload-identity-manager spire-server-0 \
+       -c spire-server -- /spire-server bundle list
+
+  4. View Workload Entries:
+     kubectl exec -n zero-trust-workload-identity-manager spire-server-0 \
+       -c spire-server -- /spire-server entry show
+
+  5. Check Demo Workloads:
+     kubectl get pods -n federation-demo
+     kubectl logs -n federation-demo -l app=demo-federated
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 📈 SUCCESS METRICS                                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  Federation is working when you see:
+
+  ✅ Both clusters show trust bundles from the remote cluster
+  ✅ Workload entries include "FederatesWith: <remote-trust-domain>"
+  ✅ Demo workloads are in "Running" status
+  ✅ Demo workload logs show "✓ SPIFFE Workload API socket found!"
+  ✅ No errors in SPIRE server logs
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ⏱️  TIMING                                                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  Setup Script:        3-5 minutes
+  Verification Script: 30 seconds
+  
+  Total time from zero to working federation: ~5 minutes
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 🛠️  REQUIREMENTS                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  ✓ Two OpenShift clusters
+  ✓ Zero Trust Workload Identity Manager installed on both
+  ✓ kubectl configured and working
+  ✓ jq installed (JSON processor)
+  ✓ Cluster-admin access to both clusters
+  ✓ Bash shell
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 🎉 WHAT YOU GET                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  After running the script:
+
+  ✅ Full SPIRE federation between clusters
+  ✅ Secure cross-cluster authentication (https_spiffe)
+  ✅ Automatic trust bundle refresh
+  ✅ Demo workloads proving it works
+  ✅ Complete verification and status report
+  ✅ Ready for production workloads
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 📚 NEXT STEPS                                                            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  1. Deploy your own workloads with federated identities
+  2. Use SPIFFE libraries in your applications
+  3. Implement mTLS between clusters
+  4. Set up monitoring and alerting
+  5. Configure additional ClusterSPIFFEID resources
+
+  See QUICKSTART.md and README.md for examples!
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  Ready to start? Run:                                                    ║
+║  ./setup-federation.sh <cluster1-kubeconfig> <cluster2-kubeconfig>       ║
+╚══════════════════════════════════════════════════════════════════════════╝
+

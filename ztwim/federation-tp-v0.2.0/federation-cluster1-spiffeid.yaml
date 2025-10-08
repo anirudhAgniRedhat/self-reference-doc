@@ -1,0 +1,46 @@
+---
+# ClusterSPIFFEID for Cluster 1 (test01) - Default workload identity with federation
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: default-federated
+  labels:
+    app.kubernetes.io/managed-by: zero-trust-workload-identity-manager
+spec:
+  # SPIFFE ID template for workloads
+  spiffeIDTemplate: "spiffe://apps.aagnihot-cluster-povc.devcluster.openshift.com/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
+  
+  # Pod selector - applies to all pods in non-system namespaces
+  podSelector:
+    matchLabels: {}
+  
+  # Namespace selector - exclude system namespaces
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+          - kube-system
+          - kube-public
+          - kube-node-lease
+          - openshift-kube-apiserver
+          - openshift-kube-scheduler
+          - openshift-kube-controller-manager
+          - zero-trust-workload-identity-manager
+  
+  # Federate with the remote trust domain (test02)
+  federatesWith:
+    - apps.aagnihot-cluster-fdk.devcluster.openshift.com
+  
+  # Workload selector templates
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:{{ .PodSpec.ServiceAccountName }}"
+  
+  # DNS names for the workload
+  dnsNameTemplates:
+    - "{{ .PodMeta.Name }}.{{ .PodMeta.Namespace }}.svc.cluster.local"
+  
+  # Controller class name
+  className: zero-trust-workload-identity-manager-spire
+

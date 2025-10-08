@@ -1,0 +1,24 @@
+---
+# ClusterFederatedTrustDomain for Cluster 2 (test02) - Configure trust to Cluster 1 (test01)
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterFederatedTrustDomain
+metadata:
+  name: test01-federation
+  labels:
+    app.kubernetes.io/managed-by: zero-trust-workload-identity-manager
+spec:
+  # Trust domain of the remote cluster (test01)
+  trustDomain: apps.aagnihot-cluster-povc.devcluster.openshift.com
+  
+  # URL of the remote cluster's federation bundle endpoint
+  bundleEndpointURL: https://spire-federation-test01.apps.aagnihot-cluster-povc.devcluster.openshift.com
+  
+  # Bundle endpoint profile configuration
+  bundleEndpointProfile:
+    type: https_spiffe
+    # Expected SPIFFE ID of the remote SPIRE server
+    endpointSPIFFEID: spiffe://apps.aagnihot-cluster-povc.devcluster.openshift.com/spire/server
+  
+  # Ensure this matches the controller class name
+  className: zero-trust-workload-identity-manager-spire
+

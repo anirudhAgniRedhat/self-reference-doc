@@ -1,0 +1,66 @@
+---
+# Demo workload to test SPIRE federation
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: federation-demo
+  labels:
+    security.openshift.io/scc.podSecurityLabelSync: "false"
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-workload
+  namespace: federation-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-workload
+  namespace: federation-demo
+  labels:
+    app: demo-workload
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-workload
+  template:
+    metadata:
+      labels:
+        app: demo-workload
+    spec:
+      serviceAccountName: demo-workload
+      containers:
+      - name: demo
+        image: alpine:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Demo workload started"
+          echo "Checking for SPIFFE Workload API socket..."
+          if [ -S /spiffe-workload-api/spire-agent.sock ]; then
+            echo "✓ SPIFFE Workload API socket found!"
+            ls -la /spiffe-workload-api/
+          else
+            echo "✗ SPIFFE Workload API socket not found"
+            echo "Available mounts:"
+            mount | grep spiffe
+          fi
+          
+          # Keep the pod running
+          echo "Sleeping indefinitely..."
+          while true; do sleep 3600; done
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /spiffe-workload-api
+          readOnly: true
+      volumes:
+      - name: spiffe-workload-api
+        csi:
+          driver: csi.spiffe.io
+          readOnly: true
+

@@ -1,0 +1,209 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║             🚀 SPIRE Federation - START HERE! 🚀                         ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+
+Welcome! This directory contains everything you need to set up complete
+SPIRE federation between two OpenShift clusters in just ONE COMMAND!
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ⚡ QUICK START - ONE COMMAND SETUP                                    ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Run this command with your two kubeconfig files:
+
+  cd federation
+  ./setup-federation.sh <cluster1-kubeconfig> <cluster2-kubeconfig>
+
+Example with your clusters:
+
+  ./setup-federation.sh \
+    /home/user/cluster1/auth/kubeconfig \
+    /home/user/cluster2/auth/kubeconfig
+
+That's it! The script will:
+  ✅ Configure SPIRE federation on both clusters
+  ✅ Deploy demo workloads
+  ✅ Verify everything is working
+  ✅ Show you the results
+
+⏱️  Time: 3-5 minutes
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  📋 WHAT YOU NEED                                                      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Before running the script, make sure you have:
+
+  ☑️  Two OpenShift clusters
+  ☑️  Zero Trust Workload Identity Manager installed on both
+  ☑️  kubeconfig files for both clusters
+  ☑️  kubectl installed and working
+  ☑️  jq installed (JSON processor)
+  ☑️  Cluster-admin access to both clusters
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  📁 FILES IN THIS DIRECTORY                                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  🚀 setup-federation.sh      ⭐ Main script - run this!
+  ✅ verify-federation.sh     Quick verification script
+  📖 START_HERE.txt           This file
+  📘 QUICKSTART.md            Quick start guide
+  📗 README.md                Detailed documentation
+  📙 INDEX.md                 File index
+  📕 SUMMARY.txt              Visual overview
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  🎯 STEP-BY-STEP INSTRUCTIONS                                          ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+STEP 1: Navigate to this directory
+        
+        cd /path/to/zero-trust-workload-identity-manager/federation
+
+STEP 2: Run the setup script with your kubeconfig files
+
+        ./setup-federation.sh \
+          /path/to/cluster1/kubeconfig \
+          /path/to/cluster2/kubeconfig
+
+STEP 3: Watch the script run through 15 automated steps
+
+        You'll see colored output showing progress:
+        🔵 Blue   - Section headers
+        🟢 Green  - Success messages
+        🟡 Yellow - Info messages
+        🟦 Cyan   - Current step
+
+STEP 4: Verify federation is working (optional)
+
+        ./verify-federation.sh \
+          /path/to/cluster1/kubeconfig \
+          /path/to/cluster2/kubeconfig
+
+STEP 5: You're done! 🎉
+
+        Federation is now fully configured and working!
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ✨ WHAT THE SCRIPT DOES (15 Steps)                                    ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  1.  Gathers cluster information (names, trust domains)
+  2.  Updates SPIRE Server ConfigMap on Cluster 1
+  3.  Updates SPIRE Server ConfigMap on Cluster 2
+  4.  Adds federation port (8443) to Service on Cluster 1
+  5.  Adds federation port (8443) to Service on Cluster 2
+  6.  Patches StatefulSet on Cluster 1
+  7.  Patches StatefulSet on Cluster 2
+  8.  Waits for pods to restart
+  9.  Creates federation Route on Cluster 1
+  10. Creates federation Route on Cluster 2
+  11. Creates ClusterFederatedTrustDomain on Cluster 1
+  12. Creates ClusterFederatedTrustDomain on Cluster 2
+  13. Bootstraps trust bundle exchange
+  14. Creates federated ClusterSPIFFEID on Cluster 1
+  15. Creates federated ClusterSPIFFEID on Cluster 2
+  
+  Plus: Deploys demo workloads and shows verification!
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ✅ SUCCESS - WHAT YOU'LL SEE                                          ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+When the script completes successfully, you'll see:
+
+  ================================================
+  ✅ Federation Setup Complete!
+  ================================================
+  
+  Cluster 1 (test01)
+    Trust Domain: apps.cluster1.example.com
+    Federation URL: https://spire-federation-test01.apps.example.com
+    Federates With: apps.cluster2.example.com
+  
+  Cluster 2 (test02)
+    Trust Domain: apps.cluster2.example.com
+    Federation URL: https://spire-federation-test02.apps.example.com
+    Federates With: apps.cluster1.example.com
+  
+  ✅ Demo workloads deployed and running
+  ✅ Workloads have access to SPIFFE Workload API
+  ✅ Cross-cluster authentication is enabled
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  🎓 EXAMPLE WITH YOUR CLUSTERS                                         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Based on your setup, run:
+
+  ./setup-federation.sh \
+    /home/aagnihot/workspace/test/installer/4.20-installer/aws/auth/kubeconfig \
+    /home/aagnihot/workspace/test/installer/4.20-installer/aws1/auth/kubeconfig
+
+This will:
+  • Configure federation between test01 and test02 clusters
+  • Set up trust domains and bundle endpoints
+  • Deploy demo workloads in "federation-demo" namespace
+  • Verify everything is working
+
+To verify later:
+
+  ./verify-federation.sh \
+    /home/aagnihot/workspace/test/installer/4.20-installer/aws/auth/kubeconfig \
+    /home/aagnihot/workspace/test/installer/4.20-installer/aws1/auth/kubeconfig
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ❓ TROUBLESHOOTING                                                    ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+If something goes wrong:
+
+1. Check prerequisites (kubectl, jq, cluster access)
+2. Look at the error message - it shows which step failed
+3. Re-run the script (it's idempotent - safe to run multiple times)
+4. Check the documentation:
+   - cat QUICKSTART.md
+   - cat README.md
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  📚 MORE INFORMATION                                                   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+For detailed information, read:
+
+  • QUICKSTART.md  - Quick start guide (recommended)
+  • README.md      - Complete documentation
+  • INDEX.md       - File directory index
+  • SUMMARY.txt    - Visual package overview
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  🎉 READY TO BEGIN?                                                    ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Just run:
+
+  ./setup-federation.sh <cluster1-kubeconfig> <cluster2-kubeconfig>
+
+And watch the magic happen! ✨
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║  Questions? Check README.md for complete documentation!                 ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
