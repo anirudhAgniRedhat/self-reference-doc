@@ -184,17 +184,17 @@ Requirement debugging is strongest in **PSE design review (2)**, **SQE test case
 
 ```mermaid
 flowchart LR
-    subgraph Bottlenecks
-        B1[Sequential dependency]
-        B2[LLM latency per task]
-        B3[Human wait time]
-        B4[Context size]
-        B5[Cost & rate limits]
+    subgraph B["Bottlenecks"]
+        B1["Sequential dependency"]
+        B2["LLM latency per task"]
+        B3["Human wait time"]
+        B4["Context size"]
+        B5["Cost and rate limits"]
     end
-    B1 --> Delay[End-to-end delay]
+    B1 --> Delay["End-to-end delay"]
     B2 --> Delay
     B3 --> Delay
-    B4 --> Limit[Token / quality limit]
+    B4 --> Limit["Token and quality limit"]
     B5 --> Limit
 ```
 
@@ -212,23 +212,23 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Human["Human orchestrator"]
-        H0[Set scope & context]
-        H1[Checkpoint 1: Design]
-        H2[Checkpoint 2: Design review]
-        H3[Checkpoint 3: Code review]
-        H4[Checkpoint 4: Publish doc]
+        H0["Set scope and context"]
+        H1["Checkpoint 1 - Design"]
+        H2["Checkpoint 2 - Design review"]
+        H3["Checkpoint 3 - Code review"]
+        H4["Checkpoint 4 - Publish doc"]
     end
 
-    subgraph AI["AI agents (sequential)"]
-        T1[1. SSE: Design]
-        T2[2. PSE: Design review]
-        T3[3. SQE: Test cases]
-        T4[4. SSE: Impl outline]
-        T5[5. SQE: Quality]
-        T6[6. PSE: Code review]
-        T7[7. SSE: Address review]
-        T8[8. SSE: Write-up]
-        T9[9. TW: Customer doc]
+    subgraph AI["AI agents sequential"]
+        T1["1. SSE Design"]
+        T2["2. PSE Design review"]
+        T3["3. SQE Test cases"]
+        T4["4. SSE Impl outline"]
+        T5["5. SQE Quality"]
+        T6["6. PSE Code review"]
+        T7["7. SSE Address review"]
+        T8["8. SSE Write-up"]
+        T9["9. TW Customer doc"]
     end
 
     H0 --> T1
