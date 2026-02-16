@@ -1,7 +1,7 @@
 # Multi-Agent Orchestration: Vision and Goals
 
-**Audience:** Managers and team members  
-**Purpose:** Share the idea, what we want to achieve, and how it can be adopted—without locking to any specific AI agent framework.
+**Audience:** Dev team building a POC in this space (engineers, tech lead)  
+**Purpose:** Align the team on what we’re building, how the workflow and roles work, and how to develop the POC—without locking to any specific AI agent framework.
 
 ---
 
@@ -61,18 +61,18 @@ The same workflow and outcomes can be achieved with:
 - **IDE- or tool-centric agents** — e.g. Cursor or other AI-assisted dev tools, used in a process that follows the same steps (design → review → implementation outline → …).
 - **Open-source or in-house agents** — any stack that can run role-based, multi-step workflows with context and tracing.
 
-So when we talk to managers and the team, we should emphasize:
+As a dev team we’re focused on:
 
-- We are proving the **orchestration pattern and the value of the workflow**, not endorsing a single vendor or framework.
-- The POC can be **reimplemented or extended** with a different agent stack if that better fits our environment, compliance, or cost goals.
+- Proving the **orchestration pattern and the value of the workflow**, not endorsing a single vendor or framework.
+- Keeping the POC **reimplementable** with a different agent stack (Cursor, open-source, etc.) if that fits our environment or preferences better.
 
 ---
 
 ## What Success Looks Like
 
-- **Short term:** Managers and team agree that the vision (multi-role, repeatable, traceable feature workflow) is worth pursuing; we keep the POC as a reference and optionally try the same workflow with another agent (e.g. Cursor or an open-source framework).
-- **Medium term:** We reuse this pattern for one or two more features or products; we tune roles and tasks based on feedback and integrate with our existing tools (e.g. Jira, docs, CI).
-- **Long term:** Multi-agent orchestration becomes a standard option for first-cut design, review, implementation outline, and docs, with humans always in the loop for decisions and sign-off.
+- **Short term:** The dev team has a working POC and shared understanding of the workflow; we optionally try the same flow with another agent stack (e.g. Cursor or an open-source framework).
+- **Medium term:** We run the pattern on one or two more features or use cases; we tune roles and tasks from feedback and plug into our existing tools (e.g. Jira, docs, CI).
+- **Long term:** Multi-agent orchestration is a repeatable option for first-cut design, review, implementation outline, and docs, with a human in the loop at key checkpoints.
 
 ---
 
@@ -84,9 +84,9 @@ Below are **concrete use cases** where the same orchestration pattern (roles + s
 |----------|------------|----------------|-------------|
 | **New operator or controller feature** | Add a new CRD, reconciliation logic, or integration (e.g. another SPIRE plugin, new Observability API). | SSE (design, impl outline, address review, write-up), PSE (design + code review), SQE (test cases, quality), Technical Writer (customer doc). | Same 9-step flow as current POC; only scope and context change. |
 | **Bug triage and fix workflow** | From a reported bug: reproduce steps → root cause → fix strategy → implementation outline → test plan → release note / doc. | Engineer (repro, fix strategy, impl), Architect/PSE (review approach), QE (test plan, verification), Tech Writer (release note). | Sequential, role-based; human checkpoint after root cause and after review. |
-| **RFC or design doc for a new capability** | Problem statement → proposed design → review → open questions → implementation outline (no code yet). | SSE/PM (problem + design), PSE (review, MUST/SHOULD), optional SQE (acceptance criteria). | Lighter than full 9-step; good for “design-only” runs. |
+| **RFC or design doc for a new capability** | Problem statement → proposed design → review → open questions → implementation outline (no code yet). | SSE (problem + design), PSE (review, MUST/SHOULD), optional SQE (acceptance criteria). | Lighter than full 9-step; good for “design-only” runs. |
 | **Security or compliance-sensitive change** | Feature or config change that touches auth, secrets, or compliance: design → security review → threat/risk notes → implementation with guardrails → audit trail / doc. | SSE (design, impl), Security/PSE (review, MUST/SHOULD), QE (security test cases), Tech Writer (runbook / compliance doc). | Same gates with a security-focused reviewer persona. |
-| **Documentation refresh or release notes** | Product/version update: list of changes → categorization → draft release note → review → customer-facing doc + upgrade notes. | PM/SSE (scope, list of changes), Tech Writer (draft, final doc), optional PSE (accuracy review). | Fewer steps; strong fit for doc-only workflows. |
+| **Documentation refresh or release notes** | Product/version update: list of changes → categorization → draft release note → review → customer-facing doc + upgrade notes. | SSE (scope, list of changes), Tech Writer (draft, final doc), optional PSE (accuracy review). | Fewer steps; strong fit for doc-only workflows. |
 | **Migration or upgrade runbook** | e.g. OCP upgrade, operator migration, config migration: design migration steps → review → test plan (canary, rollback) → runbook + verification. | SRE/SSE (migration design, steps), PSE (review), QE (test plan, rollback), Tech Writer (runbook, verification). | Same pattern; output is operational runbook instead of feature doc. |
 | **API or contract change** | New or changed API (REST, gRPC, CRD): design → compatibility review → test cases (contract tests) → implementation outline → doc. | SSE (design, impl), PSE (backward compatibility, review), SQE (contract tests), Tech Writer (API doc). | Fits design → review → test → impl → doc flow. |
 | **Incident post-mortem and follow-up** | After an incident: timeline + root cause → action items → design for fixes → review → implementation outline + runbook updates. | SRE/SSE (timeline, fixes), PSE (review), QE (tests to prevent recurrence), Tech Writer (runbook / post-mortem doc). | Structured output for blameless post-mortems and follow-up work. |
@@ -252,13 +252,13 @@ Diagrams are in **Mermaid** (GitHub, GitLab, and many Markdown viewers render th
 
 Concrete work items to move from vision and POC to a reusable, team-adopted capability. Grouped by area; order within each group can be adjusted by priority.
 
-### 1. Stakeholder and scope
+### 1. Team alignment and scope
 
 | # | Action item | Owner (suggested) | Done |
 |---|-------------|-------------------|------|
-| 1.1 | Socialize this document (vision, workflow, use cases) with managers and get alignment on goals and scope. | PM / Tech lead | |
-| 1.2 | Identify a product or team (e.g. ZTWIM, another operator) as the primary pilot customer for the next 1–2 use cases. | PM | |
-| 1.3 | Decide whether to keep current POC framework for now or add a second stack (e.g. Cursor, open-source agent) and assign an owner. | Tech lead | |
+| 1.1 | Align the dev team on this doc (vision, workflow, use cases) and on POC goals and scope. | Tech lead / Dev team | |
+| 1.2 | Pick a concrete feature or repo (e.g. ZTWIM, another operator) as the pilot for the next 1–2 use cases. | Dev team | |
+| 1.3 | Decide whether to keep the current POC framework or add a second stack (e.g. Cursor, open-source agent) and who owns it. | Tech lead / Dev team | |
 
 ### 2. POC hardening and reuse
 
@@ -274,7 +274,7 @@ Concrete work items to move from vision and POC to a reusable, team-adopted capa
 | # | Action item | Owner (suggested) | Done |
 |---|-------------|-------------------|------|
 | 3.1 | Document runbook: env setup, model choice, how to run the POC, and how to interpret traces/logs. | Engineer | |
-| 3.2 | Decide where outputs live (e.g. Confluence, Git repo, shared drive) and how the human orchestrator injects feedback (manual edit, form, comment). | Tech lead / PM | |
+| 3.2 | Decide where outputs live (e.g. Confluence, Git repo, shared drive) and how the human orchestrator injects feedback (manual edit, form, comment). | Tech lead / Dev team | |
 | 3.3 | If scaling: add support for re-running from a specific task (e.g. resume from task 4) and for passing in human feedback as context. | Engineer | |
 | 3.4 | Evaluate cost and latency (tokens, time per run); set a simple budget or SLA for one full run to guide model and prompt choices. | Engineer / Ops | |
 
@@ -282,7 +282,7 @@ Concrete work items to move from vision and POC to a reusable, team-adopted capa
 
 | # | Action item | Owner (suggested) | Done |
 |---|-------------|-------------------|------|
-| 4.1 | Pick one additional use case from Real use cases to consider (e.g. bug fix workflow, release notes, or migration runbook) and define scope and success criteria. | PM / Tech lead | |
+| 4.1 | Pick one additional use case from Real use cases to consider (e.g. bug fix workflow, release notes, or migration runbook) and define scope and success criteria. | Tech lead / Dev team | |
 | 4.2 | Adapt personas and task list for that use case; run a first end-to-end and document differences from the ZTWIM flow. | Engineer | |
 | 4.3 | Capture reusable templates (persona prompts, task order, checkpoint placement) so a new use case can be onboarded with minimal custom code. | Engineer | |
 
@@ -290,8 +290,8 @@ Concrete work items to move from vision and POC to a reusable, team-adopted capa
 
 | # | Action item | Owner (suggested) | Done |
 |---|-------------|-------------------|------|
-| 5.1 | Integrate with existing tools where useful (e.g. Jira: create epic/tasks from workflow output; or link run artifacts to a ticket). | Engineer / PM | |
-| 5.2 | Define who acts as human orchestrator per use case and how checkpoints are used (e.g. mandatory for prod, optional for dev). | PM / Tech lead | |
+| 5.1 | Integrate with existing tools where useful (e.g. Jira: create epic/tasks from workflow output; or link run artifacts to a ticket). | Engineer / Dev team | |
+| 5.2 | Define who acts as human orchestrator per use case and how checkpoints are used (e.g. mandatory for prod, optional for dev). | Tech lead / Dev team | |
 | 5.3 | Schedule a short retrospective after 2–3 runs (different use cases or features) to tune prompts, roles, and bottlenecks. | Tech lead | |
 
 ### 6. Risk and compliance (if applicable)
@@ -305,13 +305,13 @@ Concrete work items to move from vision and POC to a reusable, team-adopted capa
 
 ## Next Steps (for discussion)
 
-1. **Review this write-up** — Align on goals and messaging with managers and the team.
-2. **Decide on framework strategy** — Stay with current POC stack for now, or pilot the same workflow with another agent (Cursor, open-source, etc.).
-3. **Define one more use case** — Apply the same pattern to another feature or product to validate reuse.
-4. **Capture “definition of done”** — What outputs (e.g. design doc format, review checklist, doc template) we expect from each step so we can measure and improve.
+1. **Review this doc as a team** — Align on goals, workflow, and what done looks like for the POC.
+2. **Decide on framework** — Stay on current POC stack or try the same workflow with another agent (Cursor, open-source, etc.).
+3. **Run one more use case** — Use the action items above (e.g. 4.1, 4.2) to validate the pattern on another feature.
+4. **Capture definition of done** — Per action item 2.2; use it to measure and improve output quality.
 
 ---
 
 ## Summary
 
-We want to achieve **repeatable, role-based collaboration** on feature work (design → review → implementation outline → quality → docs) using AI agents, with **clear process and traceability**. The current ZTWIM upstream-authority POC demonstrates that this is feasible; the **orchestration idea and workflow are independent of the specific AI framework** and can be implemented with CrewAI, Cursor, open-source agents, or future tools. This document is intended to align managers and the team on the idea and next steps.
+We want to achieve **repeatable, role-based collaboration** on feature work (design → review → implementation outline → quality → docs) using AI agents, with **clear process and traceability**. The current ZTWIM upstream-authority POC demonstrates that this is feasible; the **orchestration idea and workflow are independent of the specific AI framework** and can be implemented with CrewAI, Cursor, open-source agents, or future tools. This document is for the dev team building the POC: shared context, workflow, and next steps.
