@@ -649,7 +649,7 @@ sequenceDiagram
     Note right of Sidecar: Option B: no bundle needed
     Sidecar->>Sidecar: insecure_bootstrap=true
     Sidecar->>Route: gRPC connect (skip server cert verification)
-    Note over Sidecar: "Insecure bootstrap enabled; skipping<br/>server certificate verification"
+    Note over Sidecar: Insecure bootstrap enabled, skipping server cert verification
     Route->>SrvUp: TCP passthrough
     SrvUp-->>Sidecar: Server cert + trust bundle
     Sidecar->>Sidecar: Pin trust bundle for future connections
@@ -947,14 +947,201 @@ quadrantChart
 
 ---
 
-## 9. Final Recommendation
+## 9. Can the Sidecar Be Removed?
 
-**For the ZTWIM operator's nested SPIRE implementation:**
+All five approaches tested above use a **sidecar container** (upstream-agent) in the downstream spire-server pod. This section analyzes whether the sidecar can be eliminated, and what alternatives exist.
 
-1. **Default attestation method: `x509pop`** — Best balance of security, simplicity, and resilience. No cross-cluster API access needed. Reattestable. Works with cert-manager (already a ZTWIM dependency).
+### Why the Sidecar Exists
 
-2. **Default trust bundle distribution: `insecure_bootstrap`** — Simplest to implement in the operator. Zero trust bundle management overhead. Acceptable for same-trust-domain nested SPIRE.
+The `UpstreamAuthority "spire"` plugin communicates over a **Workload API Unix domain socket**. It cannot make a direct gRPC call to the upstream SPIRE server. A SPIRE agent must:
 
-3. **Enterprise option: ESO + Vault + bundle endpoint** — Fully automated secret lifecycle. Declare once, auto-rotate forever. Auditable. Integrates cleanly with existing OpenShift enterprise tooling.
+1. Attest to the upstream SPIRE server (via Route)
+2. Receive an SVID (X.509 identity)
+3. Expose a local Workload API socket
+4. The downstream `spire-server` reads that socket to request intermediate CA signing
 
-4. **All attestation methods should remain configurable** in the CRD to support diverse customer environments, but the operator should default to the simplest secure option (`x509pop` + `insecure_bootstrap`).
+There is **no configuration flag** to make the `"spire"` plugin connect directly over the network — the Unix socket is a hard requirement in the SPIRE codebase.
+
+### Three Paths to Remove (or Relocate) the Sidecar
+
+```mermaid
+flowchart TD
+    Q{"Can the sidecar<br/>be removed?"}
+    Q --> A["Path A<br/>Move agent to DaemonSet"]
+    Q --> B["Path B<br/>Use cert-manager/vault<br/>UpstreamAuthority instead"]
+    Q --> C["Path C<br/>Hybrid: upstream SPIRE<br/>root + cert-manager signing"]
+
+    A --> A1["Agent still runs<br/>(as DaemonSet, not sidecar)"]
+    A --> A2["Socket via hostPath<br/>+ spc_t SCC"]
+
+    B --> B1["No agent at all"]
+    B --> B2["Direct API to<br/>cert-manager or Vault"]
+
+    C --> C1["No agent"]
+    C --> C2["Root CA from SPIRE<br/>exported to cert-manager"]
+
+    style Q fill:#e74c3c,color:#fff
+    style A fill:#3498db,color:#fff
+    style B fill:#27ae60,color:#fff
+    style C fill:#8e44ad,color:#fff
+```
+
+#### Path A — Keep the Agent, Move to DaemonSet
+
+Instead of a sidecar, run the upstream agent as a **DaemonSet** on the downstream cluster. The Workload API socket is shared via `hostPath` volume instead of `emptyDir`.
+
+**How it works:**
+- DaemonSet runs one upstream-agent pod per node
+- Agent writes socket to a `hostPath` directory (e.g., `/run/spire/upstream-agent/`)
+- The `spire-server` StatefulSet mounts the same `hostPath` to read the socket
+
+**OpenShift constraint:** The CSI driver cannot be used for this due to SELinux MCS label restrictions. A custom SCC with `spc_t` SELinux type is required for the `hostPath` mount:
+
+```yaml
+securityContext:
+  seLinuxOptions:
+    type: spc_t
+```
+
+**Verdict:** Agent still runs (just not as a sidecar). Operationally cleaner — agent lifecycle is independent of the server pod. But adds DaemonSet + SCC complexity on OpenShift.
+
+#### Path B — Remove the Agent Entirely (Different UpstreamAuthority)
+
+If you use `UpstreamAuthority "cert-manager"` or `UpstreamAuthority "vault"` instead of `"spire"`, **no agent is needed at all**. The downstream SPIRE server contacts the CA signing backend directly:
+
+```mermaid
+flowchart LR
+    subgraph SPIRE_PLUGIN["UpstreamAuthority Plugin"]
+        direction TB
+        P1["spire"]
+        P2["cert-manager"]
+        P3["vault"]
+        P4["disk"]
+    end
+
+    subgraph REQUIRES_AGENT["Requires Agent"]
+        P1 --> AG["upstream-agent<br/>(sidecar or DaemonSet)"]
+        AG --> SOCK["Unix socket"]
+        SOCK --> US["Upstream SPIRE Server"]
+    end
+
+    subgraph NO_AGENT["No Agent Needed"]
+        P2 --> CM["cert-manager API<br/>(in-cluster)"]
+        P3 --> VT["Vault PKI API<br/>(network call)"]
+        P4 --> FS["CA cert+key<br/>(mounted file)"]
+    end
+
+    style P1 fill:#e74c3c,color:#fff
+    style P2 fill:#27ae60,color:#fff
+    style P3 fill:#27ae60,color:#fff
+    style P4 fill:#f39c12,color:#fff
+    style AG fill:#7d3c98,color:#fff
+```
+
+| Plugin | Agent Required | How It Signs Intermediate CA | Auto-Rotation | Customer Reach |
+|--------|---------------|------------------------------|---------------|----------------|
+| `spire` | Yes (sidecar or DaemonSet) | Via Workload API socket to upstream server | Yes (SPIRE protocol) | Advanced multi-cluster |
+| `cert-manager` | **No** | Direct API call to cert-manager (in-cluster) | Yes (cert-manager renew) | **Everyone** |
+| `vault` | **No** | Direct API call to Vault PKI engine | Yes (Vault TTL) | Enterprise |
+| `disk` | **No** | Reads CA cert/key from mounted file | No (manual rotation) | Dev/PoC |
+
+**Verdict:** For customers who don't need a unified multi-cluster SPIRE trust hierarchy, `cert-manager` or `vault` completely eliminates the sidecar and all cross-cluster dependencies.
+
+#### Path C — Hybrid: SPIRE Root + cert-manager Signing
+
+This combines the best of both worlds for customers who want a centralized SPIRE root CA **without** the sidecar complexity:
+
+1. **Upstream SPIRE server** generates and owns the root CA (self-signed)
+2. **Export** the root CA cert/key to `cert-manager` as a `CA` Issuer (or to Vault as a PKI mount)
+3. **Downstream SPIRE servers** use `UpstreamAuthority "cert-manager"` — no sidecar, no agent, no cross-cluster socket
+4. Certificate chain is still: **Root (upstream) → Intermediate (downstream) → Workload SVIDs**
+
+```mermaid
+sequenceDiagram
+    participant SrvUp as Upstream SPIRE Server
+    participant CM as cert-manager (downstream)
+    participant SrvDown as Downstream SPIRE Server
+    participant Agent as SPIRE Agent
+    participant Workload
+
+    Note over SrvUp,CM: One-time setup (admin or automation)
+    SrvUp->>SrvUp: Generate root CA (self-signed)
+    SrvUp-->>CM: Export root CA cert+key as cert-manager CA Issuer
+
+    Note over SrvDown,CM: Ongoing (no sidecar, no cross-cluster calls)
+    SrvDown->>CM: Request intermediate CA signing (in-cluster API)
+    CM->>CM: Sign with root CA
+    CM-->>SrvDown: Signed intermediate CA
+    SrvDown->>SrvDown: Activate intermediate CA
+
+    Note over Agent,Workload: Workload SVIDs
+    Agent->>SrvDown: Node attestation
+    SrvDown-->>Agent: Agent SVID (signed by intermediate)
+    Workload->>Agent: Request SVID
+    Agent-->>Workload: X.509-SVID (chain: Workload, Intermediate, Root)
+```
+
+**Verdict:** Most practical for the TL/PM's goal of serving all customers. Preserves trust hierarchy. Zero cross-cluster runtime dependencies. cert-manager is already a ZTWIM dependency.
+
+### Sidecar vs. No-Sidecar Decision Matrix
+
+| Criterion | With Sidecar (`spire`) | Without Sidecar (`cert-manager`) | Without Sidecar (`vault`) |
+|-----------|----------------------|--------------------------------|--------------------------|
+| **Agent process** | Required (sidecar or DaemonSet) | None | None |
+| **Cross-cluster network** | gRPC via Route (runtime) | None (in-cluster only) | Vault API (if external) |
+| **CA signing protocol** | SPIRE Workload API | cert-manager API (K8s native) | Vault PKI API |
+| **Auto CA rotation** | Yes (SPIRE handles it) | Yes (cert-manager renew) | Yes (Vault TTL) |
+| **Unified trust domain** | Yes (same SPIRE hierarchy) | No (cert-manager manages independently) | No (Vault manages independently) |
+| **Extra components** | None (sidecar is inline) | cert-manager operator (already present) | Vault instance |
+| **OpenShift complexity** | Medium (StatefulSet patch) | Low (operator-native) | Medium (Vault deploy/access) |
+| **Failure blast radius** | Upstream outage blocks CA rotation | cert-manager outage blocks CA rotation | Vault outage blocks CA rotation |
+| **Customer audience** | Advanced (multi-cluster SPIRE) | **Everyone** | Enterprise |
+| **Operator isolation** | Needs Route to upstream cluster | Fully isolated within cluster | Needs Vault network access |
+
+### Recommendation
+
+For the ZTWIM operator's implementation:
+
+1. **Default (all customers): `UpstreamAuthority "cert-manager"`** — No sidecar. No agent. No cross-cluster dependencies. cert-manager is already a ZTWIM dependency. Works for single-cluster and multi-cluster alike. The root CA can be a self-signed cert-manager Issuer, or imported from an external PKI or upstream SPIRE.
+
+2. **Enterprise option: `UpstreamAuthority "vault"`** — No sidecar. Centralized PKI management via Vault. Audit logging. For customers with existing Vault infrastructure.
+
+3. **Advanced multi-cluster option: `UpstreamAuthority "spire"` with sidecar** — For customers who specifically need a unified SPIRE trust domain hierarchy across clusters with dynamic CA rotation via the SPIRE protocol. The sidecar remains necessary here but is an opt-in, not the default.
+
+---
+
+## 10. Final Recommendation
+
+**For the ZTWIM operator's UpstreamAuthority implementation — serving all customers:**
+
+### Tier 1: Default (all customers, no sidecar)
+
+**`UpstreamAuthority "cert-manager"`** — The operator's default UpstreamAuthority mode.
+
+- No sidecar agent. No cross-cluster dependencies. No extra infrastructure.
+- cert-manager is already a ZTWIM dependency — zero additional operator footprint.
+- Root CA can be self-signed (cert-manager `SelfSigned` → `CA` Issuer chain) or imported from external PKI.
+- Automatic CA rotation handled by cert-manager certificate renewal.
+- Works for single-cluster and multi-cluster deployments alike.
+
+### Tier 2: Enterprise (no sidecar)
+
+**`UpstreamAuthority "vault"`** — For customers with centralized HashiCorp Vault.
+
+- No sidecar agent. Direct Vault PKI API calls.
+- Centralized PKI management, audit logging, policy enforcement.
+- Automatic CA rotation via Vault certificate TTL.
+- Optionally pair with ESO for automated Vault credential distribution.
+
+### Tier 3: Advanced multi-cluster (sidecar required)
+
+**`UpstreamAuthority "spire"` with sidecar** — For customers who need a unified SPIRE trust domain hierarchy across clusters.
+
+- Sidecar (upstream-agent) is mandatory for this plugin.
+- Recommended attestation: `x509pop` (reattestable, no cross-cluster API access).
+- Recommended trust bundle: `insecure_bootstrap` (simplest) or bundle endpoint (auto-refresh).
+- This is the only option that provides dynamic multi-cluster CA rotation via the SPIRE protocol.
+
+### Principle
+
+All three UpstreamAuthority plugins (`cert-manager`, `vault`, `spire`) should be configurable in the CRD. The operator defaults to `cert-manager` (Tier 1) to serve the broadest customer base with zero additional infrastructure. The sidecar is only injected when the user explicitly selects the `spire` plugin.
