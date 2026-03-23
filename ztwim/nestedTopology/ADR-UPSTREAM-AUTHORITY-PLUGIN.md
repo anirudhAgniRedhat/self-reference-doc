@@ -858,10 +858,13 @@ type SecretKeyReference struct {
 // VaultTokenAuthConfig injects the Vault token as the VAULT_TOKEN env var.
 //
 // Credential injection strategy: ENV VAR (secretKeyRef)
-//   Upstream plugin reads: os.Getenv("VAULT_TOKEN") || config.Token
-//   Upstream does NOT support token_path in token_auth (confirmed via E2E).
+//   Upstream doc (token_auth): only field is `token` with default `${VAULT_TOKEN}`
+//   Upstream source: genClientParams() calls getEnvOrDefault(envVaultToken, config.TokenAuth.Token)
+//   Upstream struct: TokenAuthConfig { Token string `hcl:"token"` } -- NO token_path field
 //   Env vars are frozen at pod start -- Secret changes require pod restart.
 //   Operator mitigates this via secret-hash annotation (v1.1).
+//
+// Ref: https://github.com/spiffe/spire/blob/main/doc/plugin_server_upstreamauthority_vault.md#token-authentication
 //
 // Generated SPIRE config:
 //   UpstreamAuthority "vault" { plugin_data { vault_addr = "..." token_auth = {} } }
@@ -878,11 +881,15 @@ type VaultTokenAuthConfig struct {
 // VaultAppRoleAuthConfig injects AppRole credentials as env vars.
 //
 // Credential injection strategy: ENV VAR (secretKeyRef)
-//   Upstream plugin reads: VAULT_APPROLE_ID, VAULT_APPROLE_SECRET_ID env vars
-//   No file-path support exists in approle_auth.
+//   Upstream doc (approle_auth): fields are approle_auth_mount_point, approle_id (default ${VAULT_APPROLE_ID}),
+//     approle_secret_id (default ${VAULT_APPROLE_SECRET_ID})
+//   Upstream source: genClientParams() calls getEnvOrDefault(envVaultAppRoleID, config.AppRoleAuth.RoleID)
+//   Upstream struct: AppRoleAuthConfig { RoleID, SecretID, AppRoleMountPoint } -- NO *_path fields
 //   Double-caching: AppRole → Vault client token → LifetimeWatcher renews.
 //   Silent failure window = client_token_TTL + ca_ttl/2.
 //   Same secret-hash annotation mitigation as token_auth.
+//
+// Ref: https://github.com/spiffe/spire/blob/main/doc/plugin_server_upstreamauthority_vault.md#approle-authentication
 type VaultAppRoleAuthConfig struct {
     // +kubebuilder:validation:Optional
     // +kubebuilder:default:="approle"
@@ -908,9 +915,14 @@ type VaultAppRoleSecretRef struct {
 // VaultK8sAuthConfig uses a projected ServiceAccount token for auth.
 //
 // Credential injection strategy: FILE (volume mount)
-//   Upstream plugin reads token_path on every re-authentication attempt.
+//   Upstream doc (k8s_auth): fields are k8s_auth_mount_point (default kubernetes),
+//     k8s_auth_role_name (required), token_path (required)
+//   Upstream source: os.ReadFile(c.clientParams.K8sAuthTokenPath) on every auth attempt
+//   Upstream struct: K8sAuthConfig { K8sAuthMountPoint, K8sAuthRoleName, TokenPath }
 //   Kubelet auto-refreshes projected SA token at ~80% of expiry.
 //   This means the SPIRE plugin always gets a fresh token -- zero restarts.
+//
+// Ref: https://github.com/spiffe/spire/blob/main/doc/plugin_server_upstreamauthority_vault.md#kubernetes-authentication
 //
 // RECOMMENDED for in-cluster Vault: zero-credential, zero-downtime, auto-refresh.
 //
@@ -953,11 +965,17 @@ type VaultK8sAuthConfig struct {
 // VaultCertAuthConfig uses TLS client certificates for Vault auth.
 //
 // Credential injection strategy: FILE (volume mount)
-//   Upstream plugin reads client_cert_path and client_key_path.
+//   Upstream doc (cert_auth): fields are cert_auth_mount_point (default cert),
+//     cert_auth_role_name, client_cert_path (default ${VAULT_CLIENT_CERT}),
+//     client_key_path (default ${VAULT_CLIENT_KEY})
+//   Upstream source: getEnvOrDefault(envVaultClientCert, config.CertAuth.ClientCertPath)
+//   Upstream struct: CertAuthConfig { CertAuthMountPoint, CertAuthRoleName, ClientCertPath, ClientKeyPath }
 //   Volume-mounted Secrets are auto-updated by kubelet (~60s).
 //   CAVEAT: TLS config is loaded once at plugin Configure() time.
 //   Even though files update, the running plugin holds stale TLS state.
 //   Pod restart is still required for cert rotation to take effect.
+//
+// Ref: https://github.com/spiffe/spire/blob/main/doc/plugin_server_upstreamauthority_vault.md#client-certificate-authentication
 type VaultCertAuthConfig struct {
     // +kubebuilder:validation:Optional
     // +kubebuilder:default:="cert"
@@ -1379,13 +1397,13 @@ func addVaultEnvAndVolumes(vault *UpstreamAuthorityVault, mounts *[]corev1.Volum
 
 **Why env vars for `token_auth`/`approle_auth` and not file mounts:**
 
-The upstream SPIRE Vault plugin `TokenAuthConfig.authenticate()` reads:
-1. `VAULT_TOKEN` env var (via `os.Getenv`)
-2. Inline `Token` field from config
+Per the [upstream Vault plugin documentation](https://github.com/spiffe/spire/blob/main/doc/plugin_server_upstreamauthority_vault.md) and source code (`spire/pkg/server/plugin/upstreamauthority/vault/vault.go`):
 
-There is **no `token_path`** field in the `TokenAuthConfig` struct. The plugin does not attempt to read tokens from files. This is confirmed by E2E testing -- setting `token_path` in `token_auth` fails with `"token is empty"`. The same applies to `approle_auth` (`VAULT_APPROLE_ID`/`VAULT_APPROLE_SECRET_ID` env vars or inline config only).
+- `TokenAuthConfig` has only `Token string` (HCL: `token`). Default `${VAULT_TOKEN}`. **No `token_path` field.**
+- `AppRoleAuthConfig` has `RoleID` (HCL: `approle_id`, default `${VAULT_APPROLE_ID}`) and `SecretID` (HCL: `approle_secret_id`, default `${VAULT_APPROLE_SECRET_ID}`). **No `*_path` fields.**
+- Both resolve credentials via `getEnvOrDefault()` once at `Configure()` time.
 
-In contrast, `k8s_auth` supports `token_path` because the Kubernetes auth flow inherently uses file-based service account tokens. The plugin calls `os.ReadFile(tokenPath)` on every re-authentication attempt.
+In contrast, `K8sAuthConfig` has `TokenPath string` (HCL: `token_path`, **required**). The plugin calls `os.ReadFile(c.clientParams.K8sAuthTokenPath)` on **every re-authentication attempt**, which is why file-based auto-refresh works for `k8s_auth` but not for the other methods.
 
 When `upstreamAuthority` is removed, all Vault-related env vars and volumes are absent from the desired StatefulSet. The `needsUpdate()` function detects the diff and updates the StatefulSet.
 
@@ -1539,28 +1557,70 @@ Kubernetes resolves `secretKeyRef` environment variables **once at pod creation 
 
 #### Why Not Use File-Path (Volume Mount) Instead of Env Vars?
 
-Volume-mounted Secrets are auto-updated by kubelet (~60s sync), which would eliminate the need for pod restarts. However, the **upstream SPIRE Vault plugin does not support file-path-based credentials** for `token_auth` or `approle_auth`:
+Volume-mounted Secrets are auto-updated by kubelet (~60s sync), which would eliminate the need for pod restarts. However, the **upstream SPIRE Vault plugin does not support file-path-based credentials** for `token_auth` or `approle_auth`.
 
-| Auth Method | Upstream Credential Source | File Path (`*_path`) Support? | Volume Mount Viable? |
-|---|---|---|---|
-| `token_auth` | `VAULT_TOKEN` env var **or** `token` inline in config | **No** -- `token_path` is NOT a valid field in `token_auth`. Confirmed fails with `"token is empty"`. | **Not possible** (upstream limitation) |
-| `approle_auth` | `VAULT_APPROLE_ID` / `VAULT_APPROLE_SECRET_ID` env vars **or** inline values | **No** -- no `*_path` fields exist in `approle_auth` | **Not possible** (upstream limitation) |
-| `k8s_auth` | `token_path` (reads file on every re-auth attempt) | **Yes** | **Yes** -- this is exactly why `k8s_auth` auto-refreshes |
-| `cert_auth` | `client_cert_path` / `client_key_path` | **Yes** | **Partially** -- files update, but TLS config is loaded once at plugin `Configure()` time; restart needed |
+**Upstream documentation reference:** [plugin_server_upstreamauthority_vault.md](https://github.com/spiffe/spire/blob/main/doc/plugin_server_upstreamauthority_vault.md)
 
-The upstream SPIRE Vault plugin `token_auth` authentication code:
+Per the upstream documentation, each auth method accepts these fields:
+
+| Auth Method | Upstream Config Fields (from doc) | Default / Env Fallback | File Path (`*_path`) Support? | Volume Mount Viable? |
+|---|---|---|---|---|
+| `token_auth` | `token` (string) | `${VAULT_TOKEN}` | **No** -- only `token` field exists. No `token_path`. | **Not possible** (upstream limitation) |
+| `approle_auth` | `approle_auth_mount_point`, `approle_id`, `approle_secret_id` | `${VAULT_APPROLE_ID}`, `${VAULT_APPROLE_SECRET_ID}` | **No** -- no `*_path` fields exist | **Not possible** (upstream limitation) |
+| `k8s_auth` | `k8s_auth_mount_point`, `k8s_auth_role_name` (required), `token_path` (required) | mount default: `kubernetes` | **Yes** -- `token_path` reads file on every re-auth | **Yes** -- this is exactly why `k8s_auth` auto-refreshes |
+| `cert_auth` | `cert_auth_mount_point`, `cert_auth_role_name`, `client_cert_path`, `client_key_path` | `${VAULT_CLIENT_CERT}`, `${VAULT_CLIENT_KEY}` | **Yes** -- `client_cert_path` / `client_key_path` | **Partially** -- files update, but TLS config is loaded once at plugin `Configure()` time; restart needed |
+
+**Verification from upstream SPIRE source code** (`spire/pkg/server/plugin/upstreamauthority/vault/vault.go`):
+
+The `TokenAuthConfig` struct has only one field -- no `token_path`:
 ```go
-func (c *TokenAuthConfig) authenticate(client *vaultapi.Client, config *AuthConfig) error {
-    token := config.getEnvOrDefault(envVaultToken, c.Token) // env var OR inline only
-    if token == "" {
-        return errors.New("token is empty")
-    }
-    client.SetToken(token)
-    return nil
+// TokenAuthConfig represents parameters for token auth method
+type TokenAuthConfig struct {
+    // Token string to set into "X-Vault-Token" header
+    Token string `hcl:"token" json:"token"`
 }
 ```
 
-There is no `token_path` parameter -- it reads from the `VAULT_TOKEN` env var or the inline `token` config value. Same pattern for `approle_auth` (`VAULT_APPROLE_ID` / `VAULT_APPROLE_SECRET_ID`).
+The `AppRoleAuthConfig` struct similarly has no `*_path` fields:
+```go
+// AppRoleAuthConfig represents parameters for AppRole auth method.
+type AppRoleAuthConfig struct {
+    AppRoleMountPoint string `hcl:"approle_auth_mount_point" json:"approle_auth_mount_point"`
+    RoleID            string `hcl:"approle_id" json:"approle_id"`
+    SecretID          string `hcl:"approle_secret_id" json:"approle_secret_id"`
+}
+```
+
+In contrast, `K8sAuthConfig` has `token_path` which is read via `os.ReadFile()` on every auth attempt:
+```go
+type K8sAuthConfig struct {
+    K8sAuthMountPoint string `hcl:"k8s_auth_mount_point" json:"k8s_auth_mount_point"`
+    K8sAuthRoleName   string `hcl:"k8s_auth_role_name" json:"k8s_auth_role_name"`
+    TokenPath         string `hcl:"token_path" json:"token_path"`
+}
+```
+
+The credential resolution in `genClientParams()` shows how each method gets its credentials:
+```go
+switch method {
+case TOKEN:
+    // Reads VAULT_TOKEN env var, falls back to config.TokenAuth.Token
+    cp.Token = p.getEnvOrDefault(envVaultToken, config.TokenAuth.Token)
+case APPROLE:
+    // Reads VAULT_APPROLE_ID / VAULT_APPROLE_SECRET_ID env vars, falls back to inline config
+    cp.AppRoleID = p.getEnvOrDefault(envVaultAppRoleID, config.AppRoleAuth.RoleID)
+    cp.AppRoleSecretID = p.getEnvOrDefault(envVaultAppRoleSecretID, config.AppRoleAuth.SecretID)
+case K8S:
+    // Uses file path -- os.ReadFile(tokenPath) on every re-auth attempt
+    cp.K8sAuthTokenPath = config.K8sAuth.TokenPath
+case CERT:
+    // Uses file paths, but TLS config is constructed once
+    cp.ClientCertPath = p.getEnvOrDefault(envVaultClientCert, config.CertAuth.ClientCertPath)
+    cp.ClientKeyPath = p.getEnvOrDefault(envVaultClientKey, config.CertAuth.ClientKeyPath)
+}
+```
+
+**Key observation:** `getEnvOrDefault()` resolves the env var **once** during `Configure()`, not on every request. For `token_auth` and `approle_auth`, this means the credential value is captured at plugin startup and never re-read. For `k8s_auth`, `os.ReadFile(tokenPath)` is called **on every authentication attempt**, so file updates are picked up automatically.
 
 **Implication for the operator:** Since the upstream plugin does not support file-path credentials for `token_auth` and `approle_auth`, the operator has two options:
 1. **Secret-hash annotation** (recommended, validated) -- operator watches Secrets, triggers rolling update on change
