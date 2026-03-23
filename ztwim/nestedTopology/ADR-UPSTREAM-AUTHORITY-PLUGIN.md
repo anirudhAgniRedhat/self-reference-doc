@@ -110,18 +110,18 @@ The following 10 scenarios cover the range of configurations from simplest (cert
 
 ```mermaid
 graph LR
-    subgraph user [User]
+    subgraph user ["User"]
         CR["SpireServer CR<br/>upstreamAuthority:<br/>  certManager:<br/>    issuerName: spire-ca"]
     end
 
-    subgraph operator [ZTWIM Operator]
+    subgraph operator ["ZTWIM Operator"]
         Validate["Validate Config"]
         GenCM["Generate ConfigMap<br/>cert-manager plugin_data"]
         GenRBAC["Create Role + RoleBinding<br/>certificaterequests"]
         GenSTS["Generate StatefulSet<br/>no extra env/volumes"]
     end
 
-    subgraph cluster [OpenShift Cluster]
+    subgraph cluster ["OpenShift Cluster"]
         CM["spire-server ConfigMap"]
         RBAC["Role + RoleBinding"]
         STS["spire-server StatefulSet"]
